@@ -3,7 +3,6 @@ class Constants {
   static const tasksRoute = '/tasks';
   static const registerRoute = '/register';
   static const loginRoute = '/login';
-  static const singInRoute = '/signin';
   static const initialRoute = '/';
   static const isLoggedInPref = 'isLoggedIn';
   static const hiveFoldersName = 'folders';

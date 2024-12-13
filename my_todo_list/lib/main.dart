@@ -3,7 +3,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:my_todo_list/screens/auth/sign_in_screen.dart';
 import 'package:my_todo_list/screens/auth_check.dart';
 import 'package:my_todo_list/screens/folder_list_screen.dart';
 import 'package:my_todo_list/screens/task_list_screen.dart';
@@ -30,7 +29,6 @@ Future<void> main() async {
   Hive.registerAdapter(FolderAdapter());
 
   await Hive.openBox<Folder>(Constants.hiveFoldersName);
-  await Hive.openBox('settings');
 
   await _initNotifications();
 
@@ -68,7 +66,6 @@ class TodoListApp extends ConsumerWidget {
       initialRoute: Constants.initialRoute,
       routes: {
         Constants.initialRoute: (context) => const AuthCheck(),
-        Constants.singInRoute: (context) => const SingInScreen(),
         Constants.loginRoute: (context) => const LoginScreen(),
         Constants.registerRoute: (context) => const RegisterScreen(),
         Constants.foldersRoute: (context) => const FolderListScreen(),

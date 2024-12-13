@@ -1,13 +1,11 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../models/folder.dart';
 import '../models/task.dart';
 import '../utils/constants.dart';
-import '../utils/notification_helper.dart';
 import 'auth_service.dart';
 
 class DataService {

@@ -17,12 +17,35 @@ class _TaskListScreenState extends State<TaskListScreen> {
   late String folderName;
   final _dataService = DataService();
 
+  final GlobalKey<AnimatedListState> _uncompletedListKey =
+      GlobalKey<AnimatedListState>();
+  final GlobalKey<AnimatedListState> _completedListKey =
+      GlobalKey<AnimatedListState>();
+
+  List<Task> uncompletedTasks = [];
+  List<Task> completedTasks = [];
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final list = ModalRoute.of(context)!.settings.arguments as Set<String>;
     folderId = list.first;
     folderName = list.last;
+
+    _updateTaskLists();
+  }
+
+  void _updateTaskLists() {
+    final tasks = _dataService.folders
+        .firstWhere((folder) => folder.id == folderId)
+        .tasks;
+
+    setState(() {
+      uncompletedTasks =
+          tasks.where((task) => !task.isCompleted).toList(growable: true);
+      completedTasks =
+          tasks.where((task) => task.isCompleted).toList(growable: true);
+    });
   }
 
   Future<void> addTask() async {
@@ -37,173 +60,227 @@ class _TaskListScreenState extends State<TaskListScreen> {
     final reminderDate = taskDetails['reminderDate'];
 
     if (title == null || title.isEmpty) return;
-    Task task;
-    task = await _dataService.createTask(
+
+    Task task = await _dataService.createTask(
         folderId: folderId, title: title, reminderDate: reminderDate);
+
     if (task.reminderDate != null) {
       NotificationHelper().scheduleReminderNotification(task);
     }
-    setState((){});
+
+    setState(() {
+      uncompletedTasks.add(task);
+      _uncompletedListKey.currentState?.insertItem(uncompletedTasks.length - 1);
+    });
   }
 
-  Future<void> deleteTask(String taskId) {
-    return _dataService.deleteTask(folderId, taskId);
+  Future<void> toggleTaskCompletion(Task task) async {
+    await _dataService.toggleTaskCompletion(folderId, task.id);
+
+    if (task.isCompleted) {
+      final index = uncompletedTasks.indexOf(task);
+      final removedTask = uncompletedTasks.removeAt(index);
+      _uncompletedListKey.currentState?.removeItem(
+        index,
+        (context, animation) => _buildTaskCard(removedTask, animation),
+      );
+
+      completedTasks.insert(0, task);
+      _completedListKey.currentState?.insertItem(0);
+    } else {
+      final index = completedTasks.indexOf(task);
+      final removedTask = completedTasks.removeAt(index);
+      _completedListKey.currentState?.removeItem(
+        index,
+        (context, animation) => _buildTaskCard(removedTask, animation),
+      );
+
+      uncompletedTasks.insert(0, task);
+      _uncompletedListKey.currentState?.insertItem(0);
+    }
+
+    setState(() {});
   }
 
-  Future<void> toggleTaskCompletion(String taskId) {
-    return _dataService.toggleTaskCompletion(folderId, taskId);
+  Future<void> deleteTask(Task task, bool isCompleted) async {
+    await _dataService.deleteTask(folderId, task.id);
+
+    if (isCompleted) {
+      final index = completedTasks.indexOf(task);
+      final removedTask = completedTasks.removeAt(index);
+      _completedListKey.currentState?.removeItem(
+        index,
+            (context, animation) => _buildTaskCard(removedTask, animation),
+      );
+    } else {
+      final index = uncompletedTasks.indexOf(task);
+      final removedTask = uncompletedTasks.removeAt(index);
+      _uncompletedListKey.currentState?.removeItem(
+        index,
+            (context, animation) => _buildTaskCard(removedTask, animation),
+      );
+    }
+
+    setState(() {});
   }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(folderName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () async => await addTask(),
-          ),
-        ],
+        title: Text(folderName,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
       ),
-      body: ValueListenableBuilder(
-        valueListenable: _dataService.folderBox.listenable(),
-        builder: (context, Box<Folder> box, _) {
-          final tasks = _dataService.folders
-              .firstWhere((folder) => folder.id == folderId)
-              .tasks;
-          final uncompletedTasks =
-              tasks.where((task) => !task.isCompleted).toList();
-          final completedTasks =
-              tasks.where((task) => task.isCompleted).toList();
-
-          return ListView.builder(
-            itemCount: uncompletedTasks.length +
-                1 +
-                (completedTasks.isNotEmpty ? 1 : 0),
-            // +1 for the "Completed" section header
-            itemBuilder: (context, index) {
-              if (index < uncompletedTasks.length) {
-                // Handle uncompleted tasks
-                final task = uncompletedTasks[index];
-                return Container(
-                  width: double.infinity,
-                  // Ensures the ListTile takes full width
-                  margin: const EdgeInsets.symmetric(vertical: 0),
-                  // Optional spacing between items
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    // Removes extra padding around the ListTile
-                    leading: Checkbox(
-                      value: task.isCompleted,
-                      onChanged: (_) => toggleTaskCompletion(task.id),
-                    ),
-                    title: Text(task.title),
-                    subtitle: task.reminderDate != null
-                        ? Text('Reminder: ${task.reminderDate}')
-                        : null,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Edit button
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () async {
-                            final updatedTaskDetails = await showDialog(
-                              context: context,
-                              builder: (context) => _EditTaskDialog(task),
-                            );
-                            if (updatedTaskDetails != null) {
-                              final updatedTitle = updatedTaskDetails['title'];
-                              final updatedReminder =
-                                  updatedTaskDetails['reminderDate'];
-                              if (updatedTitle != null &&
-                                  updatedTitle.isNotEmpty) {
-                                task.title = updatedTitle;
-                                task.reminderDate = updatedReminder;
-                                await task.save();
-
-                                if(task.reminderDate != null) {
-                                  NotificationHelper().scheduleReminderNotification(task);
-                                }
-                              }
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => deleteTask(task.id),
-                        ),
-                      ],
-                    ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView(
+          children: [
+            if (uncompletedTasks.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  "Uncompleted Tasks",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                );
-              } else if (index == uncompletedTasks.length) {
-                return completedTasks.isNotEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(3.0),
-                        child: ExpansionTile(
-                          shape: const Border(),
-                          title: const Text('Completed'),
-                          children: completedTasks.map((task) {
-                            return SizedBox(
-                              width: double.infinity,
-                              child: ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                // Removes extra padding
-                                leading: Checkbox(
-                                  value: task.isCompleted,
-                                  onChanged: (_) =>
-                                      toggleTaskCompletion(task.id),
-                                ),
-                                title: Text(task.title),
-                                subtitle: task.reminderDate != null
-                                    ? Text('Reminder: ${task.reminderDate}')
-                                    : null,
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () async {
-                                        final updatedTaskDetails =
-                                            await showDialog(
-                                          context: context,
-                                          builder: (context) =>
-                                              _EditTaskDialog(task),
-                                        );
-                                        if (updatedTaskDetails != null) {
-                                          final updatedTitle =
-                                              updatedTaskDetails['title'];
-                                          final updatedReminder =
-                                              updatedTaskDetails[
-                                                  'reminderDate'];
-                                          if (updatedTitle != null &&
-                                              updatedTitle.isNotEmpty) {
-                                            task.title = updatedTitle;
-                                            task.reminderDate = updatedReminder;
-                                            await task.save();
-                                          }
-                                        }
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () => deleteTask(task.id),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      )
-                    : const SizedBox();
-              }
-              return const SizedBox();
-            },
-          );
-        },
+                ),
+              ),
+            AnimatedList(
+              key: _uncompletedListKey,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index, animation) {
+                return _buildTaskCard(uncompletedTasks[index], animation);
+              },
+              initialItemCount: uncompletedTasks.length,
+            ),
+            if (completedTasks.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16.0),
+                child: Text(
+                  "Completed Tasks",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            AnimatedList(
+              key: _completedListKey,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index, animation) {
+                return _buildTaskCard(completedTasks[index], animation);
+              },
+              initialItemCount: completedTasks.length,
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async => await addTask(),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildTaskCard(Task task, Animation<double> animation) {
+    return SizeTransition(
+      sizeFactor: animation,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 4.0),
+        child: ListTile(
+          contentPadding: EdgeInsets.only(left: 2),
+          leading: Checkbox(
+            value: task.isCompleted,
+            onChanged: (_) => toggleTaskCompletion(task),
+          ),
+          title: Text(task.title),
+          subtitle: task.reminderDate != null
+              ? Text('Reminder: ${task.reminderDate}')
+              : null,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.blue),
+                onPressed: () async => await _editTask(task),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => deleteTask(task, task.isCompleted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editTask(Task task) async {
+    final updatedTaskDetails = await showDialog(
+      context: context,
+      builder: (context) => _EditTaskDialog(task),
+    );
+    if (updatedTaskDetails != null) {
+      final updatedTitle = updatedTaskDetails['title'];
+      final updatedReminder = updatedTaskDetails['reminderDate'];
+      if (updatedTitle != null && updatedTitle.isNotEmpty) {
+        task.title = updatedTitle;
+        task.reminderDate = updatedReminder;
+        await task.save();
+        if (task.reminderDate != null) {
+          NotificationHelper().scheduleReminderNotification(task);
+        }
+        setState(() {});
+      }
+    }
+  }
+}
+
+class TaskCard extends StatelessWidget {
+  final Task task;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+  final VoidCallback onEdit;
+
+  const TaskCard({
+    super.key,
+    required this.task,
+    required this.onToggle,
+    required this.onDelete,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 0.0),
+      child: ListTile(
+        leading: Checkbox(
+          value: task.isCompleted,
+          onChanged: (_) => onToggle(),
+        ),
+        title: Text(task.title),
+        subtitle: task.reminderDate != null
+            ? Text('Reminder: ${task.reminderDate}')
+            : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: onDelete,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -44,7 +44,8 @@ class AuthService {
 
   Future<User?> signInAsGuest() async {
     try {
-      UserCredential result = await _auth.signInAnonymously();
+      if (_auth.currentUser?.isAnonymous ?? false) return null;
+      final result = await _auth.signInAnonymously();
       await _saveLoggedIn(true);
       return result.user;
     } catch (error) {
@@ -54,8 +55,8 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await _auth.signOut();
     await _clearData();
+    await _auth.signOut();
     await _saveLoggedIn(false);
   }
 
@@ -64,7 +65,7 @@ class AuthService {
     await prefs.setBool(Constants.isLoggedInPref, status);
   }
 
-  Future<void> _clearData() async {
-    DataService().clearLocalData();
+  Future<void> _clearData() {
+    return DataService().clearLocalData();
   }
 }

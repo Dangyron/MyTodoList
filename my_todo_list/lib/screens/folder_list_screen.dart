@@ -1,17 +1,16 @@
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:my_todo_list/services/auth_service.dart';
 import 'package:my_todo_list/services/data_service.dart';
+import 'package:my_todo_list/utils/extentions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../models/folder.dart';
-
 import '../utils/constants.dart';
 
-class FolderListScreen extends ConsumerStatefulWidget  {
+class FolderListScreen extends ConsumerStatefulWidget {
   const FolderListScreen({super.key});
 
   @override
@@ -21,282 +20,226 @@ class FolderListScreen extends ConsumerStatefulWidget  {
 class _FolderListScreenState extends ConsumerState<FolderListScreen> {
   final _authService = AuthService();
   final _dataService = DataService();
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  late List<Folder> _folders;
 
   @override
   void initState() {
     super.initState();
     _requestIOSPermissions();
+    _folders = _dataService.folders;
+    _folders.pinnedSort();
   }
 
   Future<void> _requestIOSPermissions() async {
     final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-    const iosDetails = DarwinInitializationSettings(requestAlertPermission: true, requestBadgePermission: true, requestSoundPermission: true);
+    const iosDetails = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
     const initializationSettings = InitializationSettings(iOS: iosDetails);
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    // Request permission for notifications on iOS
-    final permissionsGranted = await flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()?.requestPermissions();
-    if (!permissionsGranted!) {
-      print("Permission denied");
+    final permissionsGranted = await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions();
+    if (permissionsGranted == false) {
+      log("Permission denied");
     }
   }
 
   Future<void> _addFolder() async {
     final name = await showDialog(
       context: context,
-      builder: (context) => _AddFolderDialog(),
+      builder: (context) => const _FolderInputDialog(title: 'Add Folder'),
     );
-
     if (name == null || name.isEmpty) return;
 
-    setState(() async {
-      await _dataService.createFolder(folderName: name);
+    final newFolder = await _dataService.createFolder(folderName: name);
+    setState(() {
+      _folders.add(newFolder);
+      _listKey.currentState?.insertItem(_folders.length - 1);
     });
   }
 
-  Future<void> _renameFolder(String folderId, String currentName) async {
+  Future<void> _renameFolder(int index) async {
+    final folder = _folders[index];
     final newName = await showDialog(
       context: context,
-      builder: (context) => _RenameFolderDialog(currentName: currentName),
+      builder: (context) =>
+          _FolderInputDialog(title: 'Rename Folder', initialValue: folder.name),
     );
-    if (newName != null && newName.isNotEmpty && newName != currentName) {
-      await _dataService.renameFolder(folderId, newName);
-    }
+    if (newName == null || newName.isEmpty || newName == folder.name) return;
+
+    setState(() => folder.name = newName);
+    await _dataService.renameFolder(folder.id, newName);
   }
 
-  void _showThemeDialog() async {
-    String selectedTheme = await showDialog(
-      context: context,
-      builder: (context) => _ThemeDialog(),
-    ) ?? 'system';
+  void _removeFolder(int index) async {
+    final folder = _folders.removeAt(index);
+    _listKey.currentState?.removeItem(
+      index,
+      (context, animation) => _buildFolderTile(folder, animation, index),
+    );
+    await _dataService.deleteFolder(folder.id);
+  }
 
-    switch (selectedTheme) {
-      case 'light':
-        ref.read(themeModeProvider.notifier).state = ThemeMode.light;
-        break;
-      case 'dark':
-        ref.read(themeModeProvider.notifier).state = ThemeMode.dark;
-        break;
-      case 'system':
-        ref.read(themeModeProvider.notifier).state = ThemeMode.system;
-        break;
-    }
-    log('Theme changed to: $selectedTheme');
-    }
+  void _togglePinFolder(int index) async {
+    final folder = _folders[index];
+    await _dataService.togglePinFolder(folder.id);
+    setState(() {
+      _folders.pinnedSort();
+    });
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('To-do folders'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _addFolder,
+  Widget _buildPopupMenu() {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'theme',
+          child: ListTile(
+            leading: Icon(Icons.color_lens),
+            title: Text('Theme'),
           ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            padding: const EdgeInsets.all(0),
-            itemBuilder: (BuildContext context) =>
-            [
-              const PopupMenuItem(
-                value: 'theme',
-                child: Row(
-                  children: [
-                    Icon(Icons.color_lens, color: Colors.blue),
-                    SizedBox(width: 10),
-                    Text('Theme'),
-                  ],
-                ),
-              ),
-              if (_authService.currentUser!.isAnonymous)
-                const PopupMenuItem(
-                  value: 'signin',
-                  child: Row(
-                    children: [
-                      Icon(Icons.person, color: Colors.green),
-                      SizedBox(width: 10),
-                      Text('Sign in / Sign up'),
-                    ],
-                  ),
-                ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.red),
-                    SizedBox(width: 10),
-                    Text('Logout'),
-                  ],
-                ),
-              ),
-            ],
-            onSelected: (value) async {
-              switch (value) {
-                case 'theme':
-                  _showThemeDialog();
-                  break;
-                case 'signin':
-                  Navigator.pushNamed(context, Constants.singInRoute);
-                  log('Sign In / Sign Up selected');
-                  break;
-                case 'logout':
-                  _authService.signOut();
-                  break;
-              }
-            },
+        ),
+        if (_authService.currentUser?.isAnonymous == true)
+          const PopupMenuItem(
+            value: 'signin',
+            child: ListTile(
+              leading: Icon(Icons.person),
+              title: Text('Sign in / Sign up'),
+            ),
           ),
-        ],
-      )
-      ,
-      body: ValueListenableBuilder(
-        valueListenable: _dataService.folderBox.listenable(),
-        builder: (context, Box<Folder> box, _) {
-          final folders = _dataService.folders;
+        const PopupMenuItem(
+          value: 'logout',
+          child: ListTile(
+            leading: Icon(Icons.logout),
+            title: Text('Logout'),
+          ),
+        ),
+      ],
+      onSelected: (value) async {
+        if (value == 'theme') {
+          _showThemeDialog();
+        } else if (value == 'signin') {
+          Navigator.pushNamed(context, Constants.loginRoute);
+        } else if (value == 'logout') {
+          await _authService.signOut();
+          if (mounted) {
+            Navigator.popAndPushNamed(context, Constants.initialRoute);
+          }
+        }
+      },
+    );
+  }
 
-          folders.sort((a, b) {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            return 0;
-          });
-
-          return ListView.builder(
-            itemCount: folders.length,
-            itemBuilder: (context, index) {
-              final folder = folders[index];
-              return SizedBox(
-                width: double.infinity,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(0),
-                  leading: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          folder.isPinned ? Icons.star : Icons.star_border,
-                        ),
-                        onPressed: () async =>
-                        await _dataService.togglePinFolder(folder.id),
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        folder.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () async =>
-                        await _renameFolder(folder.id, folder.name),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () async =>
-                        // TODO check complited
-                        await _dataService.deleteFolder(folder.id),
-                      ),
-                    ],
-                  ),
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      Constants.tasksRoute,
-                      arguments: {folder.id, folder.name},
-                    );
-                  },
-                ),
-              );
+  Widget _buildFolderTile(
+      Folder folder, Animation<double> animation, int index) {
+    return SizeTransition(
+      sizeFactor: animation,
+      child: ListTile(
+        contentPadding: const EdgeInsets.only(left: 15, right: 5),
+        title: Text(folder.name),
+        leading: GestureDetector(
+          onTap: () => _togglePinFolder(index),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              return ScaleTransition(scale: animation, child: child);
             },
+            child: Icon(
+              folder.isPinned ? Icons.star : Icons.star_border,
+              key: ValueKey(folder.isPinned),
+            ),
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => _renameFolder(index),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () => _removeFolder(index),
+            ),
+          ],
+        ),
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            Constants.tasksRoute,
+            arguments: {folder.id, folder.name},
           );
         },
       ),
     );
   }
-}
 
-class _AddFolderDialog extends StatefulWidget {
-  @override
-  State<_AddFolderDialog> createState() => __AddFolderDialogState();
-}
-
-class __AddFolderDialogState extends State<_AddFolderDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Folder'),
-      content: TextField(
-        controller: _controller,
-        decoration: const InputDecoration(hintText: 'Folder Name'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text('Add'),
-        ),
-      ],
+  Future<void> _showThemeDialog() async {
+    final selectedTheme = await showDialog<String>(
+      context: context,
+      builder: (context) => _ThemeDialog(),
     );
-  }
-}
 
-class _RenameFolderDialog extends StatefulWidget {
-  final String currentName;
-
-  const _RenameFolderDialog({required this.currentName});
-
-  @override
-  State<_RenameFolderDialog> createState() => __RenameFolderDialogState();
-}
-
-class __RenameFolderDialogState extends State<_RenameFolderDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.currentName);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+    if (selectedTheme != null) {
+      ref.read(themeModeProvider.notifier).state =
+          ThemeMode.values.firstWhere((mode) => mode.name == selectedTheme);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Rename Folder'),
-      content: TextField(
-        controller: _controller,
-        decoration: const InputDecoration(hintText: 'New Folder Name'),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('To-do Folders'),
+        actions: [_buildPopupMenu()],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text('Rename'),
-        ),
-      ],
+      body: AnimatedList(
+        key: _listKey,
+        initialItemCount: _folders.length,
+        itemBuilder: (context, index, animation) {
+          final folder = _folders[index];
+          return _buildFolderTile(folder, animation, index);
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addFolder,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
 
+class _FolderInputDialog extends StatelessWidget {
+  final String title;
+  final String? initialValue;
+
+  const _FolderInputDialog({required this.title, this.initialValue});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TextEditingController(text: initialValue);
+
+    return AlertDialog(
+      title: Text(title),
+      content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Folder Name')),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save')),
+      ],
+    );
+  }
+}
 
 class _ThemeDialog extends StatefulWidget {
   @override
@@ -305,16 +248,27 @@ class _ThemeDialog extends StatefulWidget {
 
 class __ThemeDialogState extends State<_ThemeDialog> {
   late String _selectedTheme;
+  late SharedPreferences _prefs;
 
   @override
   void initState() {
     super.initState();
 
-    _selectedTheme = Hive.box('settings').get('theme', defaultValue: 'system');
+    _initPreferences();
+  }
+
+  Future<void> _initPreferences() async {
+    _prefs = await SharedPreferences.getInstance();
+    if (!_prefs.containsKey('theme')) {
+      await _prefs.setString('theme', 'system');
+    }
+    setState(() {
+      _selectedTheme = _prefs.getString('theme')!;
+    });
   }
 
   void _saveTheme(String theme) {
-    Hive.box('settings').put('theme', theme);
+    _prefs.setString('theme', theme);
   }
 
   @override

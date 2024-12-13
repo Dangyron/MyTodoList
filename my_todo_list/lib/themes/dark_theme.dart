@@ -2,32 +2,38 @@ import 'package:flutter/material.dart';
 
 final darkTheme = ThemeData(
   brightness: Brightness.dark,
-  primaryColor: Colors.deepPurple,
+  primaryColor: Colors.amberAccent,
   scaffoldBackgroundColor: Colors.grey[900],
   appBarTheme: const AppBarTheme(
-    color: Colors.deepPurple,
-    foregroundColor: Colors.white,
+    color: Colors.amberAccent,
+    foregroundColor: Colors.black,
     elevation: 4,
     shadowColor: Colors.black26,
   ),
   floatingActionButtonTheme: const FloatingActionButtonThemeData(
-    backgroundColor: Colors.teal,
-    foregroundColor: Colors.white,
+    backgroundColor: Colors.amberAccent,
+    foregroundColor: Colors.black,
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.teal,
-      foregroundColor: Colors.white,
+      backgroundColor: Colors.amberAccent,
+      foregroundColor: Colors.black87,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
+      elevation: 4,
     ),
   ),
   outlinedButtonTheme: OutlinedButtonThemeData(
     style: OutlinedButton.styleFrom(
-      foregroundColor: Colors.tealAccent,
-      side: const BorderSide(color: Colors.tealAccent),
+      foregroundColor: Colors.amberAccent,
+      side: const BorderSide(color: Colors.amberAccent),
     ),
+  ),
+  textButtonTheme: const TextButtonThemeData(
+    style: ButtonStyle(
+      foregroundColor: WidgetStatePropertyAll(Colors.amberAccent),
+    )
   ),
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
@@ -38,17 +44,17 @@ final darkTheme = ThemeData(
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.teal.shade300),
+      borderSide: BorderSide(color: Colors.amberAccent.shade100),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Colors.teal),
+      borderSide: const BorderSide(color: Colors.amberAccent),
     ),
-    labelStyle: const TextStyle(color: Colors.tealAccent),
+    labelStyle: const TextStyle(color: Colors.amberAccent),
   ),
   textTheme: const TextTheme(
     bodyMedium: TextStyle(fontSize: 14.0, color: Colors.white),
-    headlineSmall: TextStyle(fontSize: 20.0, color: Colors.tealAccent),
+    headlineSmall: TextStyle(fontSize: 20.0, color: Colors.amberAccent),
   ),
   cardTheme: CardTheme(
     color: Colors.grey[850],
@@ -58,6 +64,7 @@ final darkTheme = ThemeData(
       borderRadius: BorderRadius.circular(16),
     ),
   ),
-  iconTheme: const IconThemeData(color: Colors.tealAccent),
-  dividerColor: Colors.teal.shade100,
+  iconTheme: const IconThemeData(color: Colors.amberAccent),
+  dividerColor: Colors.amberAccent.shade100,
 );
+
