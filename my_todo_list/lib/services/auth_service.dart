@@ -18,7 +18,7 @@ class AuthService {
       await _saveLoggedIn(true);
 
       final syncService = SyncService();
-      await syncService.syncToFirebase();
+      await syncService.syncToFirebase(result.user!);
       await syncService.syncFromFirebase();
       return result.user;
     } catch (error) {
@@ -34,7 +34,9 @@ class AuthService {
           email: email, password: password);
       await _saveLoggedIn(true);
 
-      await SyncService().syncToFirebase();
+      final syncService = SyncService();
+      await syncService.syncToFirebase(result.user!);
+      await syncService.syncFromFirebase();
       return result.user;
     } catch (error) {
       log(error.toString());

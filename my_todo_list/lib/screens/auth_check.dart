@@ -8,10 +8,11 @@ import 'folder_list_screen.dart';
 class AuthCheck extends StatelessWidget {
   const AuthCheck({super.key});
 
-  Future<bool> _checkUserAuthStatus() async {
+  Future<bool> _checkUserAuthStatus () async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
 
     final prefs = await SharedPreferences.getInstance();
+
     if (!prefs.containsKey(Constants.isLoggedInPref)) {
       await prefs.setBool(Constants.isLoggedInPref, false);
     }

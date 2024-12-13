@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:my_todo_list/services/data_service.dart';
 
 class SyncService {
@@ -21,9 +22,14 @@ class SyncService {
     }
   }
 
-  Future<void> syncToFirebase() async {
+  Future<void> syncToFirebase(User user) async {
     try {
       final localFolders = _dataService.folders;
+
+      for (var folder in localFolders) {
+        folder.userId = user.uid;
+        folder.save();
+      }
 
       for (var folder in localFolders) {
         await _dataService.addOrUpdateFolderToFirebase(folder);

@@ -58,12 +58,12 @@ class DataService {
   }
 
   Future<List<Folder>> fetchAllFoldersFromFirebase() async {
-    final snapshot = await folderCollection.get();
+    final snapshot = await folderCollection.where('userId', isEqualTo: _currentUser.uid).get();
     return snapshot.docs.map((doc) => Folder.fromJson(doc.data())).toList();
   }
 
   Future<void> addOrUpdateFolderToFirebase(Folder folder) {
-    return folderCollection.doc(folder.id).update(folder.toJson());
+    return folderCollection.doc(folder.id).set(folder.toJson());
   }
 
   Future<void> renameFolder(String folderId, String newName) async {

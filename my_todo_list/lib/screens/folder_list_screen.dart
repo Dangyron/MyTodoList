@@ -145,7 +145,7 @@ class _FolderListScreenState extends ConsumerState<FolderListScreen> {
         leading: GestureDetector(
           onTap: () => _togglePinFolder(index),
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 500),
             transitionBuilder: (child, animation) {
               return ScaleTransition(scale: animation, child: child);
             },

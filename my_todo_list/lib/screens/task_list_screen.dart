@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:my_todo_list/services/data_service.dart';
-import '../models/folder.dart';
 import '../models/task.dart';
 import '../utils/notification_helper.dart';
 
@@ -193,7 +191,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 4.0),
         child: ListTile(
-          contentPadding: EdgeInsets.only(left: 2),
+          contentPadding: const EdgeInsets.only(left: 2),
           leading: Checkbox(
             value: task.isCompleted,
             onChanged: (_) => toggleTaskCompletion(task),

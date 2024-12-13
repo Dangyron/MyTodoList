@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:my_todo_list/screens/auth_check.dart';
 import 'package:my_todo_list/screens/folder_list_screen.dart';
 import 'package:my_todo_list/screens/task_list_screen.dart';
+import 'package:my_todo_list/services/sync_service.dart';
 import 'package:my_todo_list/themes/dark_theme.dart';
 import 'package:my_todo_list/themes/light_theme.dart';
 import 'models/task.dart';
@@ -15,7 +16,6 @@ import 'screens/auth/register_screen.dart';
 import 'utils/constants.dart';
 
 import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
 
@@ -29,6 +29,8 @@ Future<void> main() async {
   Hive.registerAdapter(FolderAdapter());
 
   await Hive.openBox<Folder>(Constants.hiveFoldersName);
+
+  final syncService = SyncService();
 
   await _initNotifications();
 
@@ -48,7 +50,6 @@ Future<void> _initNotifications() async {
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
   tz.initializeTimeZones();
-  tz.setLocalLocation(tz.getLocation('Europe/Madrid'));
 }
 
 class TodoListApp extends ConsumerWidget {
