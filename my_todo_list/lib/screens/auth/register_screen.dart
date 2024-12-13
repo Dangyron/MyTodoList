@@ -24,7 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _emailController.text, _passwordController.text);
 
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, Constants.foldersRoute);
+      Navigator.pushNamedAndRemoveUntil(context, Constants.foldersRoute, (route) => false);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Registration Failed: ${e.toString()}')),
@@ -81,7 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 20),
             TextButton(
               onPressed: () {
-                Navigator.pushNamed(context, Constants.loginRoute);
+                Navigator.pushNamedAndRemoveUntil(context, Constants.loginRoute, (route) => false);
               },
               child: Text(
                 'Already have an account? Log In',
@@ -94,7 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onPressed: () async {
                 await _authService.signInAsGuest();
                 if (!context.mounted) return;
-                Navigator.popAndPushNamed(context, Constants.foldersRoute);
+                Navigator.pushNamedAndRemoveUntil(context, Constants.foldersRoute, (route) => false);
               },
               child: Text(
                 'Continue as a Guest',

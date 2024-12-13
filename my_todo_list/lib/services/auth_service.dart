@@ -23,7 +23,7 @@ class AuthService {
       return result.user;
     } catch (error) {
       log(error.toString());
-      return null;
+      rethrow;
     }
   }
 
@@ -38,7 +38,7 @@ class AuthService {
       return result.user;
     } catch (error) {
       log(error.toString());
-      return null;
+      rethrow;
     }
   }
 

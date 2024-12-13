@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.text, _passwordController.text);
 
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, Constants.foldersRoute);
+      Navigator.pushNamedAndRemoveUntil(context, Constants.foldersRoute, (route) => false);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Login Failed: ${e.toString()}')),
@@ -81,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 20),
             TextButton(
               onPressed: () {
-                Navigator.pushNamed(context, Constants.registerRoute);
+                Navigator.pushNamedAndRemoveUntil(context, Constants.registerRoute, (route) => false);
               },
               child: Text(
                 'Don’t have an account? Register',
@@ -94,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () async {
                 await _authService.signInAsGuest();
                 if (!context.mounted) return;
-                Navigator.popAndPushNamed(context, Constants.foldersRoute);
+                Navigator.pushNamedAndRemoveUntil(context, Constants.foldersRoute, (route) => false);
               },
               child: Text(
                 'Continue as a Guest',
